@@ -1,0 +1,24 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# OS Metadata
+.DS_Store
+
+# Temporary files
+/tmp/
+
+# (Optional) 데이터와 리포트는 시각적 증명과 즉시 실행을 위해 포함시킵니다.
+# 만약 제외하고 싶으시면 다시 추가해 주세요.
+# datasets/*.csv
+# report/
