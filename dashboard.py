@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import os
+import koreanize_matplotlib
 from sklearn.inspection import permutation_importance
 
 # --- 페이지 설정 ---
@@ -13,10 +14,6 @@ st.set_page_config(
     page_icon="🏠",
     layout="wide"
 )
-
-# --- 한글 폰트 설정 (Mac 기준) ---
-plt.rcParams['font.family'] = 'AppleGothic'
-plt.rcParams['axes.unicode_minus'] = False
 
 # --- 데이터 및 모델 로드 함수 ---
 @st.cache_resource
