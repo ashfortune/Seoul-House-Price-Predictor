@@ -8,3 +8,4 @@ lightgbm
 joblib
 openpyxl
 ipykernel
+ydata-profiling
