@@ -160,9 +160,10 @@ def train_xgboost(df):
             ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), categorical_features)
         ])
     
+    # 튜닝 전 기본 모델 생성 (평가 지표 미리 설정)
     pipeline = Pipeline(steps=[
         ('preprocessor', preprocessor),
-        ('regressor', XGBRegressor(random_state=42))
+        ('regressor', XGBRegressor(random_state=42, eval_metric='rmse'))
     ])
     
     # 하이퍼파라미터 튜닝을 위한 그리드 설정
@@ -187,27 +188,73 @@ def train_xgboost(df):
     print(f"평균 절대 오차 (MAE): {mae:,.2f} 만원")
     print(f"결정계수 (R² Score): {r2:.4f}")
     
-    # Feature Importance 시각화 (가독성 개선)
+    # 실제값 vs 예측값 시각화
+    plt.figure(figsize=(10, 10))
+    plt.scatter(y_test, y_pred, alpha=0.3, color='#FF4949') 
+    plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'b--', lw=2)
+    plt.xlabel('Actual Price (만원)', fontsize=12)
+    plt.ylabel('Predicted Price (만원)', fontsize=12)
+    plt.title(f'Tuned XGBoost: Actual vs Predicted\n(R²: {r2:.4f}, MAE: {mae:,.0f}만원)', fontsize=15)
+    plt.tight_layout()
+    plt.savefig('report/actual_vs_predicted_xgb.png')
+    plt.close()
+
+    # Feature Importance 시각화
     xgb_model = model.named_steps['regressor']
     ohe_columns = list(model.named_steps['preprocessor'].transformers_[1][1].get_feature_names_out(categorical_features))
     feature_names = numeric_features + ohe_columns
-    
     importances = xgb_model.feature_importances_
     indices = np.argsort(importances)[::-1][:10]
     
     plt.figure(figsize=(10, 8))
-    sns.barplot(x=importances[indices], y=[feature_names[i] for i in indices], palette="magma")
+    sns.barplot(x=importances[indices], y=[feature_names[i] for i in indices], palette="magma", hue=[feature_names[i] for i in indices], legend=False)
     plt.title('AI 모델이 학습 시 주목한 주요 변수 (XGBoost Top 10)', fontsize=15)
     plt.xlabel('상대적 중요도', fontsize=12)
     plt.tight_layout()
     plt.savefig('report/feature_importance.png')
     plt.close()
+
+    # [NEW] 학습 이력(Learning Curve) 시각화를 위한 재학습 로직
+    print("대표님, 학습 횟수에 따른 오차 변화를 분석하기 위해 정밀 재학습을 수행합니다.")
+    best_xgb = model.named_steps['regressor']
+    preprocessor = model.named_steps['preprocessor']
     
+    # 학습 이력 확인을 위한 검증 데이터 분할
+    X_train_sub, X_val, y_train_sub, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
+    X_train_sub_processed = preprocessor.transform(X_train_sub)
+    X_val_processed = preprocessor.transform(X_val)
+    
+    # 버전 호환성을 위해 eval_metric은 생성자에서 지정된 것을 사용하거나 생략 가능
+    best_xgb.fit(
+        X_train_sub_processed, y_train_sub,
+        eval_set=[(X_train_sub_processed, y_train_sub), (X_val_processed, y_val)],
+        verbose=False
+    )
+    
+    results = best_xgb.evals_result()
+    # 지표 이름은 'rmse' 또는 'rmse'가 포함된 키값일 수 있음
+    metric_key = list(results['validation_0'].keys())[0]
+    epochs = len(results['validation_0'][metric_key])
+    x_axis = range(0, epochs)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_axis, results['validation_0'][metric_key], label='Train (학습 데이터)', color='#2E86C1')
+    plt.plot(x_axis, results['validation_1'][metric_key], label='Validation (검증 데이터)', color='#E74C3C')
+    plt.legend()
+    plt.ylabel(f'{metric_key.upper()} (부동산 가격 오차)', fontsize=12)
+    plt.xlabel('학습 반복 횟수 (Iteration)', fontsize=12)
+    plt.title('AI 모델 학습 이력 분석 (XGBoost Training History)', fontsize=15)
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.tight_layout()
+    plt.savefig('report/training_history.png')
+    plt.close()
+    print("학습 이력 차트(report/training_history.png)가 성공적으로 저장되었습니다.")
+
     return model
 
 def perform_detailed_analysis(model, df):
     """
-    노트북에서 가져온 정밀 분석 로직: 순열 중요도 분석 및 상세 상관관계
+    순열 중요도 분석 및 상세 상관관계
     """
     X = df[['자치구명', '건물면적(㎡)', '층', '건축년도', '건물용도']]
     y = df['물건금액(만원)']
@@ -222,19 +269,13 @@ def perform_detailed_analysis(model, df):
     plt.savefig('report/correlation_heatmap_detailed.png')
     plt.close()
     
-    # 2. Permutation Importance (가독성 개선: 막대 그래프 형태)
-    print("\nPermutation Importance 계산 중... (데이터 양에 따라 시간이 소요될 수 있습니다)")
+    # 2. Permutation Importance
+    print("\nPermutation Importance 계산 중...")
     result = permutation_importance(model, X_test, y_test, n_repeats=5, random_state=42, n_jobs=-1)
-    
-    # 평균 중요도를 기준으로 정렬
     sorted_idx = result.importances_mean.argsort()
     
     plt.figure(figsize=(10, 8))
-    sns.barplot(
-        x=result.importances_mean[sorted_idx], 
-        y=X.columns[sorted_idx], 
-        palette="viridis"
-    )
+    sns.barplot(x=result.importances_mean[sorted_idx], y=X.columns[sorted_idx], palette="viridis", hue=X.columns[sorted_idx], legend=False)
     plt.title("부동산 특징별 실질적 가격 영향력 (Test Set 분석)", fontsize=15)
     plt.xlabel("상대적 중요도 (정확도 기여도)", fontsize=12)
     plt.grid(axis='x', linestyle='--', alpha=0.7)
@@ -254,7 +295,6 @@ def save_model_comparison(lr_r2, xgb_r2):
     plt.figure(figsize=(8, 6))
     bars = plt.bar(models, r2_scores, color=['#A9A9A9', '#FF4B4B'])
     
-    # 막대 위에 값 표시
     for bar in bars:
         yval = bar.get_height()
         plt.text(bar.get_x() + bar.get_width()/2, yval + 0.01, f'{yval:.4f}', ha='center', va='bottom', fontweight='bold')
@@ -263,14 +303,10 @@ def save_model_comparison(lr_r2, xgb_r2):
     plt.title('모델 성능 비교 (R² Score)', fontsize=15, pad=20)
     plt.ylabel('R² Score', fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.6)
-    
-    # 강조 표시
     plt.axhline(y=xgb_r2, color='#FF4B4B', linestyle=':', alpha=0.5)
-    
     plt.tight_layout()
     plt.savefig('report/model_comparison_r2.png')
     plt.close()
-    print("모델 성능 비교 리포트(model_comparison_r2.png)가 생성되었습니다.")
 
 if __name__ == "__main__":
     DATA_DIR = "datasets"
@@ -287,7 +323,6 @@ if __name__ == "__main__":
         
         print("\n[STEP 1] Linear Regression 학습 시작")
         lr_model = train_linear_regression(df_cleaned)
-        # Linear Regression의 R2 스코어 추출을 위해 예측 수행 (간단히 테스트 세트로)
         X_lr = df_cleaned.drop('물건금액(만원)', axis=1)
         y_lr = df_cleaned['물건금액(만원)']
         _, X_test_lr, _, y_test_lr = train_test_split(X_lr, y_lr, test_size=0.2, random_state=42)
@@ -295,19 +330,15 @@ if __name__ == "__main__":
         
         print("\n[STEP 2] XGBoost 학습 및 정밀 분석 시작")
         model_xgb = train_xgboost(df_cleaned)
-        # XGBoost의 R2 스코어 추출을 위해 예측 수행 (이미 train_xgboost 내에서 출력하지만 넘겨받기 위해 다시 계산하거나 함수를 수정해야 함)
-        # 편의상 train_xgboost가 직접 파일들을 저장하므로 여기서 계산
+        
         X_xgb = df_cleaned[['자치구명', '건물면적(㎡)', '층', '건축년도', '건물용도']]
         y_xgb = df_cleaned['물건금액(만원)']
         _, X_test_xgb, _, y_test_xgb = train_test_split(X_xgb, y_xgb, test_size=0.2, random_state=42)
         xgb_r2 = r2_score(y_test_xgb, model_xgb.predict(X_test_xgb))
         
         perform_detailed_analysis(model_xgb, df_cleaned)
-        
-        # 모델 비교 시각화 추가
         save_model_comparison(lr_r2, xgb_r2)
         
-        # [NEW] 모델 및 데이터 저장 로직 추가
         print("\n[STEP 3] 분석 결과 저장 중...")
         joblib.dump(model_xgb, 'xgb_model.pkl')
         joblib.dump(df_cleaned, 'df_cleaned.pkl')
