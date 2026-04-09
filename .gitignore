@@ -19,6 +19,9 @@ __pycache__/
 datasets/
 report/
 
+# 포트폴리오용 이미지 (Git 관리 대상)
+!assets/
+
 # 모델 및 전처리 파일 (.pkl)
 # 필요시 업로드하고 싶으면 주석 처리 하세요.
 # xgb_model.pkl

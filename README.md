@@ -14,12 +14,12 @@
 ### 1. 자치구별 거래 현황
 서울시 전역의 부동산 거래 비중을 분석한 결과입니다. 특정 지역에 편중된 거래 데이터가 모델 학습에 미치는 영향을 파악하고, 지역적 특성에 따른 가격 편차를 학습의 핵심 변수로 활용했습니다.
 
-![자치구별 거래 현황](report/transaction_count_by_district.png)
+![자치구별 거래 현황](assets/transaction_count_by_district.png)
 
 ### 2. 가격 결정 요인 상관관계 (Correlation)
 주택의 면적, 층수, 건축 연도 등 다양한 변수들이 매매가와 어떤 관계를 맺고 있는지 시각화하였습니다. 데이터 간의 복잡한 연결 고리를 분석하여 예측 모델의 입력 데이터를 선별(Feature Selection)하는 기초 자료로 활용했습니다.
 
-![상관관계 히트맵](report/correlation_heatmap_detailed.png)
+![상관관계 히트맵](assets/correlation_heatmap_detailed.png)
 
 ---
 
@@ -28,7 +28,7 @@
 ### 1. 알고리즘별 성능 비교
 선형 회귀(Linear Regression) 모델의 한계를 극복하기 위해 **XGBoost** 알고리즘을 도입하고 하이퍼파라미터 최적화(GridSearchCV)를 진행했습니다. 그 결과, 기존 베이스라인 모델 대비 비약적인 성능 향상을 이뤄냈습니다.
 
-![모델 성능 비교](report/model_comparison_r2.png)
+![모델 성능 비교](assets/model_comparison_r2.png)
 
 | 모델명 | 결정계수 (R²) | 평균 절대 오차 (MAE) | 비고 |
 | :--- | :---: | :---: | :--- |
@@ -38,14 +38,14 @@
 ### 2. 실제값 vs 예측값 검증
 최종 모델이 예측한 가격과 실제 거래가를 비교한 산점도입니다. 대각선에 데이터가 응집될수록 높은 정확도를 의미하며, 본 모델은 전 가격대 영역에서 안정적인 예측 성능을 보여주고 있습니다.
 
-![예측 정확도 검증](report/actual_vs_predicted_xgb.png)
+![예측 정확도 검증](assets/actual_vs_predicted_xgb.png)
 
 ---
 
 ## 💡 주요 가격 결정 요인 (Feature Importance)
 "서울 아파트 가격을 결정짓는 가장 중요한 요소는 무엇인가?"에 대한 데이터의 답변입니다. **전용면적**과 **자치구 위치**가 가장 압도적인 영향력을 행사하며, 해당 분석 결과는 실제 부동산 투자 및 가치 평가 시 객관적인 지표로 활용될 수 있습니다.
 
-![변수 중요도](report/feature_importance.png)
+![변수 중요도](assets/feature_importance.png)
 
 ---
 
@@ -62,7 +62,8 @@
 
 - `app.py`: 데이터 전처리, 모델 학습 및 시각화 리포트 생성 엔진
 - `dashboard.py`: 저장된 모델을 활용한 실시간 예측 인터페이스 (Streamlit)
-- `report/`: 데이터 분석 결과 및 시각화 이미지 저장소
+- `assets/`: README 및 포트폴리오용 주요 시각화 이미지 저장소 (Git 관리)
+- `report/`: 데이터 분석 과정에서 생성되는 전체 리포트 저장소 (Git 제외)
 - `datasets/`: 서울시 부동산 실제 거래 데이터셋 (2024-2026)
 - `*.pkl`: 학습된 가중치 모델 및 전처리 데이터 스냅샷
 
